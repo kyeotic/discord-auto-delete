@@ -1,0 +1,25 @@
+#!/bin/bash
+set -ex
+
+_scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_project="${_scripts}/.."
+_infra="${_scripts}/../infra"
+APP_NAME="APP_NAME"
+
+# Terraform state, bucket name
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
+terraform_state_bucket="terraform-remote-$AWS_ACCOUNT_ID"
+
+export $(grep -v '^#' $_project/.env | xargs)
+
+pushd "${_infra}"
+
+terraform init \
+  -backend-config bucket="${terraform_state_bucket}" \
+  -backend-config="region=${TF_VAR_region:-us-west-2}" \
+  -backend-config="key=$APP_NAME" \
+  -backend-config="encrypt=true"
+
+terraform apply -auto-approve
+popd
+
