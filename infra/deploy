@@ -4,7 +4,7 @@ set -ex
 _scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _project="${_scripts}/.."
 _infra="${_scripts}/../infra"
-APP_NAME="APP_NAME"
+APPNAME="discord-auto-delete"
 
 # Terraform state, bucket name
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
@@ -17,7 +17,7 @@ pushd "${_infra}"
 terraform init \
   -backend-config bucket="${terraform_state_bucket}" \
   -backend-config="region=${TF_VAR_region:-us-west-2}" \
-  -backend-config="key=$APP_NAME" \
+  -backend-config="key=$APPNAME" \
   -backend-config="encrypt=true"
 
 terraform apply -auto-approve

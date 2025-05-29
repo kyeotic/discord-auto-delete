@@ -10,7 +10,7 @@ variable "region" {
 }
 
 variable "domain_name" {
-  default = "APP_NAME.kye.dev"
+  default = "discord-auto-delete.kye.dev"
 }
 
 variable "zone_name" {
