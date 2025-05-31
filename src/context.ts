@@ -1,11 +1,11 @@
 import { lazy } from '@kyeotic/server'
-import ConfigStore from './store.ts'
+import ConfigStore from './configStore.ts'
 import config from './config.ts'
-import Discord from './discord.ts'
+import { REST } from 'discord.js'
 
 export interface AppContext {
   config: typeof config
-  discord: Discord
+  discord: REST
   stores: {
     configs: ConfigStore
   }
@@ -15,14 +15,12 @@ export const appContext = lazy(createContext)
 
 async function createContext(): Promise<AppContext> {
   const kv = await Deno.openKv(config.kv.targetUrl)
-  const discord = new Discord(
+  const rest = new REST({ version: config.discord.version }).setToken(
     config.discord.token,
-    config.discord.publicKey,
-    config.discord.version,
   )
   return {
+    discord: rest,
     config,
-    discord,
     stores: {
       configs: new ConfigStore(kv),
     },

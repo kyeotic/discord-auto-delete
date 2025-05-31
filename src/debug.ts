@@ -1,7 +1,5 @@
 import config from './config.ts'
-import Discord from './discord.ts'
 import { REST, Routes } from 'discord.js'
-
 import { cleanupCron } from './cron.ts'
 
 await cleanupCron()

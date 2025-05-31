@@ -26,8 +26,5 @@
     "exclude": ["**/node_modules"],
     "include": ["src/", "./deno.json"],
     "entrypoint": "src/server.ts"
-  },
-  "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ESNext", "deno.ns", "deno.unstable"]
   }
 }

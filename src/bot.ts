@@ -9,9 +9,9 @@ import {
   Client,
   Events,
   GatewayIntentBits,
-} from 'npm:discord.js'
+} from 'discord.js'
 import config from './config.ts'
-import { commands } from './commands.ts'
+import { commands } from './commands/mod.ts'
 import { appContext } from './context.ts'
 
 // Create a new client instance
@@ -58,7 +58,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       apiInteraction.data as APIChatInputApplicationCommandInteractionData
     )?.name
     if (commands.has(name)) {
-      const result = await commands.get(name)!(app, apiInteraction)
+      const result = await commands.get(name)!.handler(app, apiInteraction)
       // console.log('result', result)
 
       // parse the result and send it as a reply

@@ -1,4 +1,3 @@
-/// <reference lib="deno.unstable"/>
 import { listAllValues, makeSet } from '@kyeotic/server/kv'
 import { ChannelConfig } from './types.ts'
 

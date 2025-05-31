@@ -1,16 +1,14 @@
 import base64Url from 'base64url'
-import { REST, Routes } from 'discord.js'
-import { cleanerCommand } from './commands/cleaner.ts'
+import { Routes } from 'discord.js'
 import { appContext } from './context.ts'
+import { commands } from './commands/mod.ts'
 
 const app = await appContext()
-const rest = (app.discord as any).rest as REST
-
-const commands = [cleanerCommand]
+const rest = app.discord
 
 console.log('Updating commands...')
 await rest.put(Routes.applicationCommands(getApplicationId()), {
-  body: commands,
+  body: [...commands.values()].map((command) => command.builder.toJSON()),
 })
 
 // if (app.config.discord.guildId) {

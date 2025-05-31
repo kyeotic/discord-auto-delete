@@ -1,3 +1,4 @@
+import { APIMessage, Routes } from 'discord.js'
 import { appContext } from './context.ts'
 
 // Run every hour
@@ -9,7 +10,9 @@ export async function cleanupCron() {
   const configs = await app.stores.configs.getAll()
 
   for (const config of configs) {
-    const messages = await app.discord.getChannelMessages(config.channelId)
+    const messages = (await app.discord.get(
+      Routes.channelMessages(config.channelId),
+    )) as APIMessage[]
     const messagesToDelete = messages.filter((message) => {
       if (message.pinned) return false
       const createdAt = new Date(message.timestamp)
@@ -17,9 +20,11 @@ export async function cleanupCron() {
       const diff = now.getTime() - createdAt.getTime()
       return diff > config.duration
     })
-    await app.discord.deleteMessages(
-      config.channelId,
-      messagesToDelete.map((message) => message.id),
-    )
+    console.log(config.channelId, messagesToDelete.length)
+    if (!messagesToDelete.length) continue
+
+    await app.discord.post(Routes.channelBulkDelete(config.channelId), {
+      body: { messages: messagesToDelete.map((message) => message.id) },
+    })
   }
 }
