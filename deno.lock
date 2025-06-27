@@ -45,6 +45,7 @@
     "npm:discord.js@*": "14.19.3",
     "npm:discord.js@^14.19.3": "14.19.3",
     "npm:discordeno@*": "21.0.0",
+    "npm:humanize-duration@*": "3.32.2",
     "npm:humanize-duration@^3.32.2": "3.32.2",
     "npm:lodash-es@^4.17.21": "4.17.21",
     "npm:lodash@^4.17.21": "4.17.21",

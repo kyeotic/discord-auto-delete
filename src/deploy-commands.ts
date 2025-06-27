@@ -25,16 +25,16 @@ await rest.put(Routes.applicationCommands(getApplicationId()), {
 // }
 
 // remove discord guild commands
-console.log('Removing guild commands...')
-await rest.put(
-  Routes.applicationGuildCommands(
-    getApplicationId(),
-    app.config.discord.guildId!,
-  ),
-  {
-    body: [],
-  },
-)
+// console.log('Removing guild commands...')
+// await rest.put(
+//   Routes.applicationGuildCommands(
+//     getApplicationId(),
+//     app.config.discord.guildId!,
+//   ),
+//   {
+//     body: [],
+//   },
+// )
 
 function getApplicationId() {
   const token = app.config.discord.token

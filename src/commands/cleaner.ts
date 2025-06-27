@@ -3,14 +3,20 @@ import {
   APIChatInputApplicationCommandInteractionData,
   APIInteraction,
   APIInteractionResponse,
+  APIMessage,
   InteractionResponseType,
   MessageFlags,
   SlashCommandBuilder,
+  Routes,
 } from 'npm:discord.js'
 import parseDuration from 'npm:parse-duration'
 import humanizeDuration from 'npm:humanize-duration'
 import { AppContext } from '../context.ts'
-import { configSchema, type SlashCommand } from '../types.ts'
+import {
+  configSchema,
+  type SlashCommand,
+  type ChannelConfig,
+} from '../types.ts'
 // {
 //   id: "1378154187111661640",
 //   name: "cleaner",
@@ -40,6 +46,11 @@ export const cleanerCommand: SlashCommand = {
     )
     .addSubcommand((subcommand) =>
       subcommand
+        .setName('run')
+        .setDescription('Run the cleaner configuration for this channel'),
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
         .setName('configure')
         .setDescription('Configure the deletion duration')
         .addStringOption((option) =>
@@ -65,6 +76,31 @@ export async function handleCleanerCommand(
   console.log('data', data)
   const command = data.options?.[0]?.name
   // console.log('command', command, command === 'view')
+
+  if (command === 'run') {
+    const config = await appContext.stores.configs.get(
+      interaction.guild_id!,
+      interaction.channel?.id!,
+    )
+    if (!config) {
+      return {
+        type: InteractionResponseType.ChannelMessageWithSource,
+        data: {
+          content: 'No configuration found for this channel',
+          flags: MessageFlags.Ephemeral,
+        },
+      }
+    }
+    await cleanChannel(appContext, config)
+
+    return {
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: {
+        content: 'Cleaner has been run',
+        flags: MessageFlags.Ephemeral,
+      },
+    }
+  }
 
   if (command === 'configure') {
     const duration = (
@@ -147,6 +183,39 @@ export async function handleCleanerCommand(
       content: 'Hello, world!',
       flags: MessageFlags.Ephemeral,
     },
+  }
+}
+
+export async function runCleaner(appContext: AppContext): Promise<void> {
+  const configs = await appContext.stores.configs.getAll()
+
+  for (const config of configs) {
+    await cleanChannel(appContext, config)
+  }
+}
+
+async function cleanChannel(app: AppContext, config: ChannelConfig) {
+  const messages = (await app.discord.get(
+    Routes.channelMessages(config.channelId),
+  )) as APIMessage[]
+  const messagesToDelete = messages.filter((message) => {
+    if (message.pinned) return false
+    const createdAt = new Date(message.timestamp)
+    const now = new Date()
+    const diff = now.getTime() - createdAt.getTime()
+    return diff > config.duration
+  })
+  console.log(config.channelId, messagesToDelete.length)
+  if (!messagesToDelete.length) return
+
+  if (messagesToDelete.length === 1) {
+    await app.discord.delete(
+      Routes.channelMessage(config.channelId, messagesToDelete[0].id),
+    )
+  } else {
+    await app.discord.post(Routes.channelBulkDelete(config.channelId), {
+      body: { messages: messagesToDelete.map((message) => message.id) },
+    })
   }
 }
 
