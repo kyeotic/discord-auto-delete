@@ -6,18 +6,18 @@ When finishing work update this document with progress and changes.
 
 ## What Needs to Change
 
-| Deno Deploy API                   | Cloudflare Equivalent                                                        | Scope                          |
-| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
-| `Deno.serve()`                    | `export default { fetch(req, env, ctx) }`                                    | `server.ts`                    |
-| `Deno.cron()`                     | `export default { scheduled(event, env, ctx) }` + `wrangler.toml` cron trigger | `cron.ts`                   |
-| `Deno.openKv()` / `Deno.Kv`       | Cloudflare KV namespace binding (`env.CONFIGS_KV`)                           | `context.ts`, `configStore.ts` |
-| `Deno.env.get()`                  | `env.VAR_NAME` (passed into handler)                                         | `config.ts`                    |
-| `@kitsonk/kv-toolbox`             | Cloudflare KV `.list()` API                                                  | `configStore.ts`               |
-| `@kyeotic/server` (lazy, makeSet) | Inline replacements                                                          | `context.ts`, `configStore.ts` |
-| `deno.land/x/sift` (json helper)  | `Response.json(...)`                                                         | `worker.ts`                    |
-| `discord.js` REST client          | Native `fetch` + `discord-api-types` routes                                  | `context.ts`, commands         |
-| `deno.json` tasks                 | `wrangler.toml` + updated `deno.json` tasks using `npx wrangler`             | project root                   |
-| `.ts` import extensions           | No extensions (Node/bundler convention)                                      | all files                      |
+| Deno Deploy API                   | Cloudflare Equivalent                                                          | Scope                          |
+| --------------------------------- | ------------------------------------------------------------------------------ | ------------------------------ |
+| `Deno.serve()`                    | `export default { fetch(req, env, ctx) }`                                      | `server.ts`                    |
+| `Deno.cron()`                     | `export default { scheduled(event, env, ctx) }` + `wrangler.toml` cron trigger | `cron.ts`                      |
+| `Deno.openKv()` / `Deno.Kv`       | Cloudflare KV namespace binding (`env.CONFIGS_KV`)                             | `context.ts`, `configStore.ts` |
+| `Deno.env.get()`                  | `env.VAR_NAME` (passed into handler)                                           | `config.ts`                    |
+| `@kitsonk/kv-toolbox`             | Cloudflare KV `.list()` API                                                    | `configStore.ts`               |
+| `@kyeotic/server` (lazy, makeSet) | Inline replacements                                                            | `context.ts`, `configStore.ts` |
+| `deno.land/x/sift` (json helper)  | `Response.json(...)`                                                           | `worker.ts`                    |
+| `discord.js` REST client          | Native `fetch` + `discord-api-types` routes                                    | `context.ts`, commands         |
+| `deno.json` tasks                 | `wrangler.toml` + updated `deno.json` tasks using `npx wrangler`               | project root                   |
+| `.ts` import extensions           | No extensions (Node/bundler convention)                                        | all files                      |
 
 ### KV Key Structure Change
 
@@ -129,6 +129,22 @@ cloudflared tunnel --url http://localhost:8787
 ```
 Then temporarily update the Discord app interaction URL to the tunnel URL.
 
+### Manual Testing
+
+
+1. Add CF_ACCOUNT_ID and CF_API_TOKEN to your .env (needed for the KV preview namespace to work)
+2. Start the local server:
+deno task --env-file=.env serve
+1. Expose it with a tunnel:
+cloudflared tunnel --url http://localhost:8080
+# or: ngrok http 8080
+1. Go to the Discord Developer Portal and temporarily set the Interactions Endpoint URL to the tunnel URL
+2. Test your slash commands in Discord
+
+When done testing, revert the interaction URL back to the Deno Deploy URL (or leave it pointing at the tunnel until you're
+ready for Phase 5 cutover).
+
+
 ---
 
 ## Phase 5: Deploy & Cutover — DONE
@@ -137,8 +153,8 @@ Then temporarily update the Discord app interaction URL to the tunnel URL.
 - [x] `deno task deploy` — deploys worker and registers cron trigger via `wrangler.toml`
 - [x] Update Discord app interaction endpoint URL to CF Workers URL
 - [x] Verify slash commands work end-to-end
-- [ ] Verify cron fires and deletes messages
-- [ ] Decommission Deno Deploy app
+- [x] Verify cron fires and deletes messages
+- [x] Decommission Deno Deploy app
 
 ---
 
