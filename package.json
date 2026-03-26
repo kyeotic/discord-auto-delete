@@ -1,0 +1,32 @@
+{
+  "name": "discord-auto-delete",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/kyeotic/discord-auto-delete#readme",
+  "bugs": {
+    "url": "https://github.com/kyeotic/discord-auto-delete/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyeotic/discord-auto-delete.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "update-commands": "node --experimental-strip-types src/deploy-commands.ts"
+  },
+  "dependencies": {
+    "discord-api-types": "^0.38.8",
+    "discord-interactions": "^4.3.0",
+    "humanize-duration": "^3.32.2",
+    "parse-duration": "^2.1.4",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "wrangler": "^4.77.0"
+  }
+}
