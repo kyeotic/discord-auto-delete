@@ -2,20 +2,22 @@
 
 Migrating from Deno Deploy Classic to Cloudflare Workers.
 
+When finishing work update this document with progress and changes.
+
 ## What Needs to Change
 
-| Deno Deploy API | Cloudflare Equivalent | Scope |
-|---|---|---|
-| `Deno.serve()` | `export default { fetch(req, env, ctx) }` | `server.ts` |
-| `Deno.cron()` | `export default { scheduled(event, env, ctx) }` + wrangler cron trigger | `cron.ts` |
-| `Deno.openKv()` / `Deno.Kv` | Cloudflare KV namespace binding (`env.CONFIGS_KV`) | `context.ts`, `configStore.ts` |
-| `Deno.env.get()` | `env.VAR_NAME` (passed into handler) | `config.ts` |
-| `@kitsonk/kv-toolbox` | Cloudflare KV `.list()` API | `configStore.ts` |
-| `@kyeotic/server` (lazy, makeSet) | Inline replacements | `context.ts`, `configStore.ts` |
-| `deno.land/x/sift` (json helper) | `new Response(JSON.stringify(...))` | `server.ts` |
-| `discord.js` REST client | Native `fetch` + `discord-api-types` routes | `context.ts`, commands |
-| `deno.json` | `package.json` + `wrangler.toml` | project root |
-| `.ts` import extensions | No extensions (Node/bundler convention) | all files |
+| Deno Deploy API                   | Cloudflare Equivalent                                                   | Scope                          |
+| --------------------------------- | ----------------------------------------------------------------------- | ------------------------------ |
+| `Deno.serve()`                    | `export default { fetch(req, env, ctx) }`                               | `server.ts`                    |
+| `Deno.cron()`                     | `export default { scheduled(event, env, ctx) }` + wrangler cron trigger | `cron.ts`                      |
+| `Deno.openKv()` / `Deno.Kv`       | Cloudflare KV namespace binding (`env.CONFIGS_KV`)                      | `context.ts`, `configStore.ts` |
+| `Deno.env.get()`                  | `env.VAR_NAME` (passed into handler)                                    | `config.ts`                    |
+| `@kitsonk/kv-toolbox`             | Cloudflare KV `.list()` API                                             | `configStore.ts`               |
+| `@kyeotic/server` (lazy, makeSet) | Inline replacements                                                     | `context.ts`, `configStore.ts` |
+| `deno.land/x/sift` (json helper)  | `Response.json(...)`                                                    | `worker.ts`                    |
+| `discord.js` REST client          | Native `fetch` + `discord-api-types` routes                             | `context.ts`, commands         |
+| `deno.json`                       | `package.json` + `wrangler.toml`                                        | project root                   |
+| `.ts` import extensions           | No extensions (Node/bundler convention)                                 | all files                      |
 
 ### KV Key Structure Change
 
@@ -37,7 +39,7 @@ Migrating from Deno Deploy Classic to Cloudflare Workers.
 
 ---
 
-## Phase 2: Data Migration (Deno KV → Cloudflare KV)
+## Phase 2: Data Migration (Deno KV → Cloudflare KV) — DONE
 
 - [x] Write `scripts/export-kv.ts` — dumps all `CONFIGS` entries from Deno KV to JSON
 - [x] Transform key format: array keys → colon-delimited string keys
@@ -71,41 +73,38 @@ npx wrangler kv list --binding CONFIGS_KV
 
 ---
 
-## Phase 3: Code Migration
+## Phase 3: Code Migration — DONE
 
-Files to rewrite, in order:
-
-- [ ] `src/types.ts` — add `WorkerEnv` interface for CF bindings
-- [ ] `src/config.ts` — remove `Deno.env.get()`, accept `WorkerEnv` param
-- [ ] `src/configStore.ts` — replace `Deno.Kv` with `KVNamespace`, update key format
-- [ ] `src/context.ts` — remove `Deno.openKv()` and `lazy()`, accept `WorkerEnv`
-- [ ] `src/cron.ts` — remove `Deno.cron()`, export `cleanupCron` for scheduled handler
-- [ ] `src/commands/cleaner.ts` — replace `discord.js` REST with native fetch helper
-- [ ] `src/worker.ts` (new) — unified entry point with `fetch` + `scheduled` exports
-
-**Discord REST helper pattern:**
-```ts
-async function discordRequest(method: string, path: string, token: string, body?: unknown) {
-  const res = await fetch(`https://discord.com/api/v10${path}`, {
-    method,
-    headers: {
-      Authorization: `Bot ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  if (!res.ok) throw new Error(`Discord API error: ${res.status}`)
-  return res.json()
-}
-```
+- [x] `src/types.ts` — added `WorkerEnv` interface; replaced `discord.js` types with `discord-api-types/v10`; `SlashCommand.builder` is now `RESTPostAPIChatInputApplicationCommandsJSONBody` (plain JSON, no builder class)
+- [x] `src/config.ts` — removed `Deno.env.get()`; exports `getConfig(env: WorkerEnv): AppConfig` function
+- [x] `src/configStore.ts` — replaced `Deno.Kv` with `KVNamespace`; keys are now `CONFIGS:guildId:channelId`; `getAll()` uses `.list()` + `.get()` per key
+- [x] `src/context.ts` — removed `Deno.openKv()` and `lazy()`; exports `createContext(env)` (sync); `discord` REST replaced with `discordRequest` method using native fetch
+- [x] `src/cron.ts` — removed `Deno.cron()`; exports `cleanupCron(app)` called by the scheduled handler
+- [x] `src/commands/cleaner.ts` — replaced `discord.js` REST calls with `app.discordRequest()`; replaced `SlashCommandBuilder` with plain JSON object
+- [x] `src/commands/mod.ts` — removed `.ts` import extensions
+- [x] `src/worker.ts` (new) — unified entry point with `fetch` + `scheduled` exports
+- [x] `src/deploy-commands.ts` — replaced `discord.js` REST with native fetch; uses `command.builder` directly (no `.toJSON()`)
 
 ---
 
-## Phase 4: Local Development
+## Phase 4: Local Development — DONE
 
-- [ ] `wrangler dev` for local worker testing
-- [ ] Use `cloudflared tunnel` or `ngrok` to expose local port for Discord interaction testing
-- [ ] Update Discord app interaction URL to tunnel URL temporarily
+- [x] `.denoflare` config created — binds secrets via `${env:...}`, uses preview KV namespace for local dev
+- [x] `deno task serve` added to `deno.json`
+
+**To run locally:**
+```sh
+deno task --env-file=.env serve
+```
+
+The `.denoflare` config uses `${env:CF_ACCOUNT_ID}` and `${env:CF_API_TOKEN}` for the Cloudflare profile — add these to `.env` to enable KV reads/writes against the preview namespace during local dev.
+
+To expose the local server for Discord interaction testing, use a tunnel:
+```sh
+cloudflared tunnel --url http://localhost:8080
+# or: ngrok http 8080
+```
+Then temporarily update the Discord app interaction URL to the tunnel URL.
 
 ---
 
@@ -122,7 +121,9 @@ async function discordRequest(method: string, path: string, token: string, body?
 ## Key Notes
 
 - **`discord-interactions` / `verifyKey()`** uses `crypto.subtle` — works in CF Workers natively
-- **`discord.js` dropped** — only used its REST client and types; replaced with native fetch + `discord-api-types`
+- **`discord.js` dropped** — only used its REST client and types; replaced with native fetch + `discord-api-types`; `SlashCommandBuilder` replaced with plain JSON matching `RESTPostAPIChatInputApplicationCommandsJSONBody`
 - **CF KV eventual consistency** — fine for this use case (configs written infrequently, read hourly)
 - **Bundle size** — without `discord.js` should be well under the 1MB free tier limit
 - **Discord bulk delete** only works on messages under 14 days old (pre-existing limitation, not a migration concern)
+- **denoflare vs wrangler** — `.denoflare` is used for local dev (`denoflare serve`); `wrangler.toml` is used for deploy. Both coexist. The preview KV namespace in `.denoflare` is only for local dev; prod namespace comes from `wrangler.toml`.
+- **Import map** — `deno.json` import map resolves bare specifiers (e.g. `discord-api-types/v10`) for both Deno tooling and denoflare; no `npm:` prefixes needed in source files

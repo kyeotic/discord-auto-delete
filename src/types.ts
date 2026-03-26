@@ -1,12 +1,16 @@
 import { z } from 'zod'
 import {
-  APIChatInputApplicationCommandInteractionData,
   APIInteraction,
   APIInteractionResponse,
-  SlashCommandBuilder,
-  SlashCommandSubcommandsOnlyBuilder,
-} from 'discord.js'
-import { AppContext } from './context.ts'
+  RESTPostAPIChatInputApplicationCommandsJSONBody,
+} from 'discord-api-types/v10'
+import type { AppContext } from './context.ts'
+
+export interface WorkerEnv {
+  BOT_TOKEN: string
+  DISCORD_PUBLIC_KEY: string
+  CONFIGS_KV: KVNamespace
+}
 
 export const configSchema = z.object({
   guildId: z.string(),
@@ -18,7 +22,7 @@ export const configSchema = z.object({
 export type ChannelConfig = z.infer<typeof configSchema>
 
 export interface SlashCommand {
-  builder: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder
+  builder: RESTPostAPIChatInputApplicationCommandsJSONBody
   handler: (
     appContext: AppContext,
     interaction: APIInteraction,

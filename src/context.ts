@@ -1,28 +1,41 @@
-import { lazy } from '@kyeotic/server'
+import { AppConfig, getConfig } from './config.ts'
 import ConfigStore from './configStore.ts'
-import config from './config.ts'
-import { REST } from 'discord.js'
+import { WorkerEnv } from './types.ts'
 
 export interface AppContext {
-  config: typeof config
-  discord: REST
+  config: AppConfig
+  discordRequest(method: string, path: string, body?: unknown): Promise<unknown>
   stores: {
     configs: ConfigStore
   }
 }
 
-export const appContext = lazy(createContext)
-
-async function createContext(): Promise<AppContext> {
-  const kv = await Deno.openKv(config.kv.targetUrl)
-  const rest = new REST({ version: config.discord.version }).setToken(
-    config.discord.token,
-  )
+export function createContext(env: WorkerEnv): AppContext {
+  const config = getConfig(env)
   return {
-    discord: rest,
     config,
+    discordRequest: (method, path, body) =>
+      discordFetch(method, path, config.discord.token, body),
     stores: {
-      configs: new ConfigStore(kv),
+      configs: new ConfigStore(env.CONFIGS_KV),
     },
   }
+}
+
+async function discordFetch(
+  method: string,
+  path: string,
+  token: string,
+  body?: unknown,
+): Promise<unknown> {
+  const res = await fetch(`https://discord.com/api/v10${path}`, {
+    method,
+    headers: {
+      Authorization: `Bot ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) throw new Error(`Discord API error: ${res.status}`)
+  return res.json()
 }

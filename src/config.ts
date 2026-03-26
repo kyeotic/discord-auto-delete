@@ -1,20 +1,21 @@
-const envPort = Deno.env.get('PORT')
-const isDenoDeploy = !!Deno.env.get('DENO_DEPLOYMENT_ID')
+import { WorkerEnv } from './types.ts'
 
-const port = envPort ? parseFloat(envPort) : 8080
-
-export default {
-  isDenoDeploy,
-  port,
+export interface AppConfig {
   discord: {
-    version: '10',
-    token: Deno.env.get('BOT_TOKEN')!,
-    publicKey: Deno.env.get('DISCORD_PUBLIC_KEY')!,
-    guildId: Deno.env.get('DISCORD_GUILD_ID'),
-    // guildId: undefined,
-  },
-  kv: {
-    // targetUrl: undefined,
-    targetUrl: isDenoDeploy ? undefined : Deno.env.get('KV_TARGET_URL'),
-  },
-} as const
+    version: string
+    token: string
+    publicKey: string
+    guildId: string | undefined
+  }
+}
+
+export function getConfig(env: WorkerEnv): AppConfig {
+  return {
+    discord: {
+      version: '10',
+      token: env.BOT_TOKEN,
+      publicKey: env.DISCORD_PUBLIC_KEY,
+      guildId: undefined,
+    },
+  }
+}
