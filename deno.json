@@ -3,13 +3,13 @@
     "types": ["npm:@cloudflare/workers-types"]
   },
   "tasks": {
-    "dev": "deno run -A --unstable-kv src/bot.ts",
+    "dev": "npx wrangler dev --remote --var BOT_TOKEN:$BOT_TOKEN --var DISCORD_PUBLIC_KEY:$DISCORD_PUBLIC_KEY",
+    "push-secrets": "echo $BOT_TOKEN | npx wrangler secret put BOT_TOKEN && echo $DISCORD_PUBLIC_KEY | npx wrangler secret put DISCORD_PUBLIC_KEY",
     "debug": "deno run -A --unstable-kv --unstable-cron src/debug.ts",
-    "deploy": "deno deploy create --org kyeotek --app kyeotic-discord-cleaner --source local --runtime-mode dynamic --entrypoint src/server.ts --region us --install-command \"deno install\"",
+    "deploy": "npx wrangler deploy",
     "update-commands": "deno run -A --unstable-kv src/deploy-commands.ts",
     "export-kv": "deno run -A --unstable-kv --env=.env scripts/export-kv.ts kv-export.json",
-    "import-kv": "npx wrangler kv bulk put --binding CONFIGS_KV --preview false --remote kv-export.json",
-    "serve": "denoflare serve discord-auto-delete"
+    "import-kv": "npx wrangler kv bulk put --binding CONFIGS_KV --preview false --remote kv-export.json"
   },
   "imports": {
     "@kitsonk/kv-toolbox": "jsr:@kitsonk/kv-toolbox@^0.27.4",
@@ -26,14 +26,5 @@
     "superjson": "npm:superjson@^2.2.2",
     "url-join": "npm:url-join@^5.0.0",
     "zod": "npm:zod@^3.24.2"
-  },
-  "deploy": {
-    "org": "kyeotek",
-    "app": "kyeotic-discord-cleaner",
-    "install": "deno install",
-    "runtime": {
-      "mode": "dynamic",
-      "entrypoint": "src/server.ts"
-    }
   }
 }

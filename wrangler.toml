@@ -2,6 +2,7 @@ name = "discord-auto-delete"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+preview_urls = false
 
 [[kv_namespaces]]
 binding = "CONFIGS_KV"

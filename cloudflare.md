@@ -6,18 +6,18 @@ When finishing work update this document with progress and changes.
 
 ## What Needs to Change
 
-| Deno Deploy API                   | Cloudflare Equivalent                                                   | Scope                          |
-| --------------------------------- | ----------------------------------------------------------------------- | ------------------------------ |
-| `Deno.serve()`                    | `export default { fetch(req, env, ctx) }`                               | `server.ts`                    |
-| `Deno.cron()`                     | `export default { scheduled(event, env, ctx) }` + denoflare cron trigger | `cron.ts`                      |
-| `Deno.openKv()` / `Deno.Kv`       | Cloudflare KV namespace binding (`env.CONFIGS_KV`)                      | `context.ts`, `configStore.ts` |
-| `Deno.env.get()`                  | `env.VAR_NAME` (passed into handler)                                    | `config.ts`                    |
-| `@kitsonk/kv-toolbox`             | Cloudflare KV `.list()` API                                             | `configStore.ts`               |
-| `@kyeotic/server` (lazy, makeSet) | Inline replacements                                                     | `context.ts`, `configStore.ts` |
-| `deno.land/x/sift` (json helper)  | `Response.json(...)`                                                    | `worker.ts`                    |
-| `discord.js` REST client          | Native `fetch` + `discord-api-types` routes                             | `context.ts`, commands         |
-| `deno.json`                       | `.denoflare` config                                                     | project root                   |
-| `.ts` import extensions           | No extensions (Node/bundler convention)                                 | all files                      |
+| Deno Deploy API                   | Cloudflare Equivalent                                                        | Scope                          |
+| --------------------------------- | ---------------------------------------------------------------------------- | ------------------------------ |
+| `Deno.serve()`                    | `export default { fetch(req, env, ctx) }`                                    | `server.ts`                    |
+| `Deno.cron()`                     | `export default { scheduled(event, env, ctx) }` + `wrangler.toml` cron trigger | `cron.ts`                   |
+| `Deno.openKv()` / `Deno.Kv`       | Cloudflare KV namespace binding (`env.CONFIGS_KV`)                           | `context.ts`, `configStore.ts` |
+| `Deno.env.get()`                  | `env.VAR_NAME` (passed into handler)                                         | `config.ts`                    |
+| `@kitsonk/kv-toolbox`             | Cloudflare KV `.list()` API                                                  | `configStore.ts`               |
+| `@kyeotic/server` (lazy, makeSet) | Inline replacements                                                          | `context.ts`, `configStore.ts` |
+| `deno.land/x/sift` (json helper)  | `Response.json(...)`                                                         | `worker.ts`                    |
+| `discord.js` REST client          | Native `fetch` + `discord-api-types` routes                                  | `context.ts`, commands         |
+| `deno.json` tasks                 | `wrangler.toml` + updated `deno.json` tasks using `npx wrangler`             | project root                   |
+| `.ts` import extensions           | No extensions (Node/bundler convention)                                      | all files                      |
 
 ### KV Key Structure Change
 
@@ -30,10 +30,34 @@ When finishing work update this document with progress and changes.
 
 ## Phase 1: Cloudflare Project Setup — DONE
 
-- [x] `.denoflare` config created with KV bindings, secrets, and cron trigger
-- [x] `deno.json` updated — tasks for serve, push, and KV migration
+- [x] `wrangler.toml` created with KV bindings, cron trigger, and compatibility settings
+- [x] `deno.json` updated — tasks for dev, deploy, push-secrets, and KV migration
 - [x] KV namespace created (prod `94d5f54ab59c488bb0a4d3e8d3f3dca1`, preview `a0a0c46e2f83417d85837c591ee33f10`)
-- [x] Secrets set: `BOT_TOKEN`, `DISCORD_PUBLIC_KEY`
+- [x] Secrets set via `deno task push-secrets`: `BOT_TOKEN`, `DISCORD_PUBLIC_KEY`
+
+**`wrangler.toml` key sections:**
+```toml
+[[kv_namespaces]]
+binding = "CONFIGS_KV"
+id = "<prod-namespace-id>"
+preview_id = "<preview-namespace-id>"
+
+[triggers]
+crons = ["0 * * * *"]
+```
+
+**`deno.json` tasks:**
+```json
+{
+  "dev": "npx wrangler dev --remote --var BOT_TOKEN:$BOT_TOKEN --var DISCORD_PUBLIC_KEY:$DISCORD_PUBLIC_KEY",
+  "deploy": "npx wrangler deploy",
+  "push-secrets": "echo $BOT_TOKEN | npx wrangler secret put BOT_TOKEN && echo $DISCORD_PUBLIC_KEY | npx wrangler secret put DISCORD_PUBLIC_KEY"
+}
+```
+
+Secrets are managed via env vars (direnv + `.env`). `push-secrets` uploads them to Cloudflare; run it once on setup and whenever secrets change. Local dev uses `--var` flags to inject secrets directly from env, and `--remote` to use the preview KV namespace.
+
+**Note:** wrangler reads `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` from the environment (not `CF_ACCOUNT_ID` / `CF_API_TOKEN`). Add both to `.env`.
 
 ---
 
@@ -48,12 +72,11 @@ When finishing work update this document with progress and changes.
 ```sh
 # 1. Export from Deno KV
 deno task export-kv
-# or: deno run -A --unstable-kv scripts/export-kv.ts kv-export.json
 
 # 2. Import into Cloudflare KV (prod namespace)
 deno task import-kv
 
-# 3. Verify a sample entry (wrangler used here for KV management only)
+# 3. Verify a sample entry
 npx wrangler kv list --binding CONFIGS_KV --remote
 ```
 
@@ -85,30 +108,35 @@ npx wrangler kv list --binding CONFIGS_KV --remote
 
 ## Phase 4: Local Development — DONE
 
-- [x] `.denoflare` config created — binds secrets via `${env:...}`, uses preview KV namespace for local dev
-- [x] `deno task serve` added to `deno.json`
+- [x] `deno task dev` runs `wrangler dev --remote` — uses preview KV namespace, injects secrets from env vars
+- [x] Cron can be tested locally while `dev` is running:
+
+```sh
+curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"
+```
 
 **To run locally:**
 ```sh
-deno task --env-file=.env serve
+deno task dev
 ```
 
-The `.denoflare` config uses `${env:CF_ACCOUNT_ID}` and `${env:CF_API_TOKEN}` for the Cloudflare profile — add these to `.env` to enable KV reads/writes against the preview namespace during local dev.
+Requires `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `BOT_TOKEN`, and `DISCORD_PUBLIC_KEY` in `.env` (loaded via direnv).
 
 To expose the local server for Discord interaction testing, use a tunnel:
 ```sh
-cloudflared tunnel --url http://localhost:8080
-# or: ngrok http 8080
+cloudflared tunnel --url http://localhost:8787
+# or: ngrok http 8787
 ```
 Then temporarily update the Discord app interaction URL to the tunnel URL.
 
 ---
 
-## Phase 5: Deploy & Cutover
+## Phase 5: Deploy & Cutover — DONE
 
-- [ ] `denoflare push discord-auto-delete`
-- [ ] Update Discord app interaction endpoint URL to CF Workers URL
-- [ ] Verify slash commands work end-to-end
+- [x] `deno task push-secrets` — upload secrets to Cloudflare
+- [x] `deno task deploy` — deploys worker and registers cron trigger via `wrangler.toml`
+- [x] Update Discord app interaction endpoint URL to CF Workers URL
+- [x] Verify slash commands work end-to-end
 - [ ] Verify cron fires and deletes messages
 - [ ] Decommission Deno Deploy app
 
@@ -121,5 +149,6 @@ Then temporarily update the Discord app interaction URL to the tunnel URL.
 - **CF KV eventual consistency** — fine for this use case (configs written infrequently, read hourly)
 - **Bundle size** — without `discord.js` should be well under the 1MB free tier limit
 - **Discord bulk delete** only works on messages under 14 days old (pre-existing limitation, not a migration concern)
-- **denoflare** — used for both local dev (`denoflare serve discord-auto-delete`) and deploy (`denoflare push discord-auto-delete`). `wrangler.toml` is kept for reference but `wrangler` is not used. The preview KV namespace in `.denoflare` is for local dev; the prod namespace is also configured there for push.
-- **Import map** — `deno.json` import map resolves bare specifiers (e.g. `discord-api-types/v10`) for both Deno tooling and denoflare; no `npm:` prefixes needed in source files
+- **wrangler** — used for all deploy and local dev. Cron triggers are registered automatically on `wrangler deploy` via `[triggers]` in `wrangler.toml`. denoflare does not support cron trigger registration.
+- **Secrets vs vars** — `wrangler secret put` stores encrypted secrets in Cloudflare for production. For local dev, `wrangler dev --var KEY:$VALUE` injects them from env without a `.dev.vars` file.
+- **Import map** — `deno.json` import map resolves bare specifiers (e.g. `discord-api-types/v10`) for Deno tooling; wrangler bundles via esbuild and resolves `npm:` specifiers from the import map automatically
